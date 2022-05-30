@@ -6,12 +6,13 @@ export const GET_POSTS = gql`
       data {
         id
         title
+        counter @client
       }
     }
   }
 `;
 
-const GET_COUNTER = gql`
+export const GET_COUNTER = gql`
   query GetCounterValue {
     counter @client
   }

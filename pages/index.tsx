@@ -3,8 +3,9 @@ import { gql, useQuery, useReactiveVar } from "@apollo/client";
 import { useEffect, useState } from "react";
 import { counterVar, postItemsVar } from "../cache";
 import { useMutation } from "@apollo/react-hooks";
-import { UPDATE_POSTS } from "./api/mutations";
-import { GET_POSTS } from "./api/queries";
+import { ADD_POST, UPDATE_POSTS } from "./api/mutations";
+import { GET_COUNTER, GET_POSTS } from "./api/queries";
+import { useRouter } from "next/router";
 
 const Todo: React.FC<{ title: string; id: string }> = ({ title, id }) => {
   const [isEdit, setIsEdit] = useState<boolean>(false);
@@ -55,9 +56,13 @@ const Todo: React.FC<{ title: string; id: string }> = ({ title, id }) => {
 };
 
 const Home: NextPage = () => {
+  const router = useRouter();
+
   const postItems = useReactiveVar(postItemsVar);
 
   const counter = useReactiveVar(counterVar);
+
+  const [title, setTitle] = useState<string>("");
 
   const { loading, error, data } = useQuery(GET_POSTS, {
     variables: { limit: 5 },
@@ -68,18 +73,57 @@ const Home: NextPage = () => {
       postItemsVar(data.posts.data);
     }
   }, [data]);
+
+  const [addPost, { data: addData, loading: addLoading, error: addError }] =
+    useMutation(ADD_POST, {
+      onCompleted: (addData) => {
+        console.log(addData);
+        const { id, title } = addData.createPost;
+        let newPosts = [...postItems];
+        newPosts.unshift({ id, title });
+        postItemsVar([...newPosts]);
+      },
+      onError: (addError) => {
+        console.log(addError);
+      },
+      refetchQueries: [GET_POSTS],
+    });
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error!</div>;
 
   return (
     <>
-      {/* For using post map */}
-
-      {/* {postItems.map((post: { id: string; title: string }) => (
-        <Todo key={post.id} title={post.title} id={post.id} />
-      ))} */}
+      {/* For adding a post */}
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <button
+        onClick={() =>
+          addPost({
+            variables: {
+              input: {
+                title,
+                body: "Some interesting content.",
+              },
+            },
+          })
+        }
+      >
+        Add
+      </button>
+      <br />
 
       {/* For using fields as slices */}
+      <button
+        onClick={() => {
+          router.push({ pathname: "/posts" });
+        }}
+      >
+        Push
+      </button>
       <button
         onClick={() =>
           counterVar({ ...counterVar(), value: counter.value + 1 })
@@ -95,6 +139,12 @@ const Home: NextPage = () => {
         Decrement
       </button>
       {counter.value}
+
+      {/* For using post map */}
+
+      {postItems.map((post: { id: string; title: string }) => (
+        <Todo key={post.id} title={post.title} id={post.id} />
+      ))}
     </>
   );
 };
